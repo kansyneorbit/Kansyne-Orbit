@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireMember } from '@/lib/session'
 import { formatDate, getStages, isOverdue } from '@/lib/data'
 import { Card, PageHeader } from '@/components/ui'
+import { TASK_CREATOR_ROLES } from '@/lib/types'
 
 export const metadata = { title: 'Tasks' }
 
@@ -28,7 +29,7 @@ export default async function TasksBoard({ params }: { params: Promise<{ company
       .order('deadline', { ascending: true, nullsFirst: false }),
   ])
   const tasks = (data ?? []) as unknown as TaskRow[]
-  const canCreate = ['owner', 'admin', 'manager'].includes(member.role)
+  const canCreate = TASK_CREATOR_ROLES.includes(member.role)
 
   return (
     <>
@@ -44,7 +45,7 @@ export default async function TasksBoard({ params }: { params: Promise<{ company
         <Card className="p-10 text-center">
           <p className="font-medium">No tasks yet</p>
           <p className="mt-1 text-sm text-soft">
-            {canCreate ? 'Create your first task to see it move through your workflow.' : 'Tasks assigned to you will appear here.'}
+            {member.role === 'sales' ? 'Tasks you bring in will appear here.' : canCreate ? 'Create your first task to see it move through your workflow.' : 'Tasks assigned to you will appear here.'}
           </p>
         </Card>
       ) : (

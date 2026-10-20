@@ -1,10 +1,11 @@
-export const ROLES = ['owner', 'admin', 'manager', 'consultant', 'analyst', 'accounts', 'hr'] as const
+export const ROLES = ['owner', 'admin', 'manager', 'sales', 'consultant', 'analyst', 'accounts', 'hr'] as const
 export type Role = (typeof ROLES)[number]
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Owner',
   admin: 'Admin',
   manager: 'Manager',
+  sales: 'Business Development',
   consultant: 'Consultant',
   analyst: 'Analyst',
   accounts: 'Accounts',
@@ -46,6 +47,10 @@ export type PaymentKind = keyof typeof PAYMENT_KIND_LABELS
 export type PaymentStatus = keyof typeof PAYMENT_STATUS_LABELS
 
 export const FINANCE_ROLES: Role[] = ['owner', 'admin', 'manager', 'accounts']
+// Who may create clients and tasks (Business Development only as themselves).
+export const TASK_CREATOR_ROLES: Role[] = ['owner', 'admin', 'manager', 'sales']
+// Who assigns people, edits any task and sends invoice reminders.
+export const TASK_MANAGER_ROLES: Role[] = ['owner', 'admin', 'manager']
 
 export type Member = {
   id: string

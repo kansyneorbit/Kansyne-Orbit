@@ -22,6 +22,7 @@ const ROLE_HELP: Record<Role, string> = {
   owner: 'Everything, including billing and managing Owners.',
   admin: 'Everything except managing Owners.',
   manager: 'Creates and assigns tasks; sees all tasks and money.',
+  sales: 'Brings in work: creates clients and tasks, sets the fee and sees payments on their own tasks only.',
   consultant: 'Works on tasks assigned to them.',
   analyst: 'Works on tasks assigned to them.',
   accounts: 'Sees all tasks; handles invoices and payments.',

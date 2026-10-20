@@ -75,8 +75,9 @@ export async function createTask(companyId: string, form: FormData) {
     .single()
   if (error || !task) fail(back, error?.message ?? 'Could not create the task.')
 
+  // Business Development doesn't assign; a Manager does after the hand-over.
   const leadId = str(form, 'lead_id')
-  if (isUuid(leadId)) {
+  if (isUuid(leadId) && member.role !== 'sales') {
     await supabase.from('task_assignees').insert({
       company_id: companyId,
       task_id: task.id,
@@ -230,6 +231,16 @@ export async function setRevisionResolved(companyId: string, taskId: string, rev
   if (error) fail(back, error.message)
   if (!data?.length) fail(back, 'Only people working on this task, or a Manager, can update revisions.')
   finish(back, 'revisions')
+}
+
+// ---------- invoice reminder to whoever brought the task in (Owner/Admin/Manager) ----------
+
+export async function remindToInvoice(companyId: string, taskId: string) {
+  const { supabase, back } = await startTask(companyId, taskId)
+  const { data: who, error } = await supabase.rpc('remind_to_invoice', { p_task: taskId })
+  if (error) fail(back, error.message)
+  revalidatePath(back)
+  redirect(`${back}?notice=${encodeURIComponent(`Reminder sent to ${who}.`)}`)
 }
 
 // ---------- hours (log your own, on tasks you can see) ----------

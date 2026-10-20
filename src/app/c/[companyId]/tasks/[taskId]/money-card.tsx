@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { balanceOf, moneyFormatter, type PaymentRow } from '@/lib/money'
 import { formatDate } from '@/lib/data'
-import { PAYMENT_KIND_LABELS, PAYMENT_STATUS_LABELS, type Company, type Role } from '@/lib/types'
+import { FINANCE_ROLES, PAYMENT_KIND_LABELS, PAYMENT_STATUS_LABELS, type Company, type Role } from '@/lib/types'
 import { Card, Input, Select, Textarea } from '@/components/ui'
 import { SubmitButton } from '@/components/submit-button'
 import { addPayment, deletePayment, saveTaskFinancials, setPaymentStatus } from '../finance-actions'
@@ -12,7 +12,8 @@ const STATUS_STYLE = {
   verified: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300',
 } as const
 
-// Shown only to finance roles; RLS returns nothing to anyone else anyway.
+// Shown to finance roles, and to Business Development on tasks they brought in.
+// RLS returns nothing to anyone else anyway.
 export async function MoneyCard({ companyId, taskId, company, myRole }: {
   companyId: string
   taskId: string
@@ -33,6 +34,8 @@ export async function MoneyCard({ companyId, taskId, company, myRole }: {
   const fmt = moneyFormatter(company)
   const { owed, paid, due } = balanceOf(fin?.total_amount ?? 0, payments)
   const canVerify = myRole === 'owner' || myRole === 'admin'
+  // Business Development sees payments on their own tasks but doesn't record them.
+  const canRecord = FINANCE_ROLES.includes(myRole)
 
   return (
     <Card className="p-5">
@@ -79,19 +82,20 @@ export async function MoneyCard({ companyId, taskId, company, myRole }: {
                       {PAYMENT_STATUS_LABELS[p.status]}{p.received_at ? ` ${formatDate(p.received_at.slice(0, 10))}` : ''}
                     </span>
                   )}
-                  {p.kind !== 'extra' && p.status === 'pending' && (
+                  {canRecord && p.kind !== 'extra' && p.status === 'pending' && (
                     <form action={setPaymentStatus.bind(null, companyId, taskId, p.id, 'received')}><button className="font-medium text-brand hover:underline">Mark received</button></form>
                   )}
-                  {p.kind !== 'extra' && p.status === 'received' && canVerify && (
+                  {canRecord && p.kind !== 'extra' && p.status === 'received' && canVerify && (
                     <form action={setPaymentStatus.bind(null, companyId, taskId, p.id, 'verified')}><button className="font-medium text-brand hover:underline">Verify</button></form>
                   )}
-                  <form action={deletePayment.bind(null, companyId, taskId, p.id)} className="ml-auto"><button className="text-soft hover:text-red-600">Remove</button></form>
+                  {canRecord && <form action={deletePayment.bind(null, companyId, taskId, p.id)} className="ml-auto"><button className="text-soft hover:text-red-600">Remove</button></form>}
                 </div>
               </li>
             ))}
           </ul>
         )}
 
+        {canRecord ? (
         <details className="rounded-md border border-line p-3">
           <summary className="cursor-pointer text-sm font-medium">Record a payment or extra charge</summary>
           <form action={addPayment.bind(null, companyId, taskId)} className="mt-3 space-y-2">
@@ -108,6 +112,9 @@ export async function MoneyCard({ companyId, taskId, company, myRole }: {
             <SubmitButton className="w-full" pendingText="Saving…">Add</SubmitButton>
           </form>
         </details>
+        ) : (
+          <p className="text-xs text-faint">Accounts records payments as they arrive.</p>
+        )}
       </div>
     </Card>
   )

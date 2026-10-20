@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireMember } from '@/lib/session'
 import { getCategories } from '@/lib/data'
-import { ROLE_LABELS, type Role } from '@/lib/types'
+import { ROLE_LABELS, TASK_CREATOR_ROLES, type Role } from '@/lib/types'
 import { Banner, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
 import { SubmitButton } from '@/components/submit-button'
 import { createTask } from '../actions'
@@ -16,11 +16,11 @@ export default async function NewTaskPage({ params, searchParams }: {
   const { error } = await searchParams
   const { member } = await requireMember(companyId)
 
-  if (!['owner', 'admin', 'manager'].includes(member.role)) {
+  if (!TASK_CREATOR_ROLES.includes(member.role)) {
     return (
       <>
         <PageHeader title="New task" />
-        <Banner tone="info">Only an Owner, Admin or Manager can create tasks.</Banner>
+        <Banner tone="info">Only an Owner, Admin, Manager or Business Development can create tasks.</Banner>
       </>
     )
   }
@@ -68,14 +68,18 @@ export default async function NewTaskPage({ params, searchParams }: {
             </div>
           </fieldset>
 
-          <Field label="Lead" hint="The person mainly responsible. You can add more people later.">
-            <Select name="lead_id" defaultValue="">
-              <option value="">Unassigned</option>
-              {(members ?? []).map((m) => (
-                <option key={m.id} value={m.id}>{m.name} — {ROLE_LABELS[m.role as Role]}</option>
-              ))}
-            </Select>
-          </Field>
+          {member.role === 'sales' ? (
+            <Banner tone="info">An Owner or Admin will hand this task to a Manager, who assigns the team.</Banner>
+          ) : (
+            <Field label="Lead" hint="The person mainly responsible. You can add more people later.">
+              <Select name="lead_id" defaultValue="">
+                <option value="">Unassigned</option>
+                {(members ?? []).map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {ROLE_LABELS[m.role as Role]}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
 
           <Field label="Description">
             <Textarea name="description" rows={4} />

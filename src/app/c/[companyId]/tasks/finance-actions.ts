@@ -8,12 +8,15 @@ import { FINANCE_ROLES, PAYMENT_KIND_LABELS, PAYMENT_STATUS_LABELS, type Payment
 
 const str = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
-// Owner, Admin, Manager and Accounts. RLS (can_see_financials) enforces the same.
-async function start(companyId: string, taskId: string) {
+// Owner, Admin, Manager and Accounts; Business Development may set the fee and
+// invoice on tasks they brought in. RLS enforces the same.
+async function start(companyId: string, taskId: string, { allowSales = false } = {}) {
   if (!isUuid(companyId) || !isUuid(taskId)) fail('/app', 'Unknown task.')
   const { member } = await requireMember(companyId)
   const back = `/c/${companyId}/tasks/${taskId}`
-  if (!FINANCE_ROLES.includes(member.role)) fail(back, 'Only an Owner, Admin, Manager or Accounts can change money details.')
+  if (!FINANCE_ROLES.includes(member.role) && !(allowSales && member.role === 'sales')) {
+    fail(back, 'Only an Owner, Admin, Manager or Accounts can change payments.')
+  }
   return { me: member, supabase: await createClient(), back }
 }
 
@@ -30,7 +33,7 @@ function readAmount(raw: string, back: string, { allowZero = false } = {}) {
 }
 
 export async function saveTaskFinancials(companyId: string, taskId: string, form: FormData) {
-  const { supabase, back } = await start(companyId, taskId)
+  const { supabase, back } = await start(companyId, taskId, { allowSales: true })
   const invoiceDate = str(form, 'invoice_date')
   if (invoiceDate && !/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) fail(back, 'Choose a valid invoice date.')
   const { error } = await supabase.from('task_financials').upsert(
@@ -44,7 +47,7 @@ export async function saveTaskFinancials(companyId: string, taskId: string, form
     },
     { onConflict: 'task_id' },
   )
-  if (error) fail(back, error.message)
+  if (error) fail(back, error.code === '42501' ? 'You can only set the fee on tasks you brought in.' : error.message)
   done(companyId, back)
 }
 

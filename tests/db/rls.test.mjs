@@ -150,5 +150,63 @@ await expectErr('admin cannot delete a task', async () => {
   return r;
 });
 
+// ---------- Business Development (sales) ----------
+const S = '00000000-0000-0000-0000-00000000000f';
+await db.exec(`INSERT INTO auth.users VALUES ('${S}', 's@alpha.com', now())`);
+await as(A, `INSERT INTO members (company_id, name, email, role) VALUES ($1,'Sam Sales','s@alpha.com','sales')`, [X]);
+await as(S, 'SELECT public.accept_invites()');
+const sMember = (await db.query(`SELECT id FROM members WHERE user_id=$1`, [S])).rows[0].id;
+
+const [{ code: sCode }] = await as(S, `SELECT public.next_client_code($1) AS code`, [X]);
+const [sClient] = await expectOk('sales creates a client', async () => as(S,
+  `INSERT INTO clients (company_id, code, name, created_by) VALUES ($1,$2,'Dr Sen',$3) RETURNING id`, [X, sCode, sMember]),
+  r => r.length === 1) ?? [];
+const [sTask] = await expectOk('sales creates a task as themselves', async () => as(S,
+  `INSERT INTO tasks (company_id, title, client_id, category_id, stage_id, created_by) VALUES ($1,'Sen thesis',$2,$3,$4,$5) RETURNING id`,
+  [X, sClient.id, await cat(X), await stage(X, 'New'), sMember]), r => r.length === 1) ?? [];
+await expectErr('sales cannot create a task as someone else', async () => as(S,
+  `INSERT INTO tasks (company_id, title, client_id, category_id, stage_id, created_by) VALUES ($1,'x',$2,$3,$4,$5)`,
+  [X, sClient.id, await cat(X), await stage(X, 'New'), aMember]));
+await expectOk('sales sees only the task they brought in', async () => as(S, 'SELECT id FROM tasks'),
+  r => r.length === 1 && r[0].id === sTask.id);
+await expectOk('sales sees only their own client', async () => as(S, 'SELECT id FROM clients'),
+  r => r.length === 1 && r[0].id === sClient.id);
+await expectOk('sales cannot rename another client (0 rows)', async () => as(S, `UPDATE clients SET name='x' WHERE id=$1 RETURNING id`, [cl.id]),
+  r => r.length === 0);
+
+await expectOk('sales sets the fee on their task', async () => as(S,
+  `INSERT INTO task_financials (company_id, task_id, total_amount, invoice_no) VALUES ($1,$2,20000,'INV-1') RETURNING task_id`, [X, sTask.id]),
+  r => r.length === 1);
+await expectErr('sales cannot set the fee on a task they did not bring in', async () => as(S,
+  `INSERT INTO task_financials (company_id, task_id, total_amount) VALUES ($1,
+     (SELECT id FROM tasks WHERE title='Secret'), 1)`, [X]));
+await expectOk('sales cannot see money of other tasks', async () => as(S, 'SELECT task_id FROM task_financials'),
+  r => r.length === 1 && r[0].task_id === sTask.id);
+await expectErr('sales cannot record a payment', async () => as(S,
+  `INSERT INTO payments (company_id, task_id, kind, amount, status) VALUES ($1,$2,'payment',500,'received')`, [X, sTask.id]));
+await as(A, `INSERT INTO payments (company_id, task_id, kind, amount, status) VALUES ($1,$2,'advance',5000,'received')`, [X, sTask.id]);
+await expectOk('sales sees payments on their task', async () => as(S, 'SELECT amount::int a FROM payments'),
+  r => r.length === 1 && r[0].a === 5000);
+await expectOk('sales cannot move stages (0 rows)', async () => as(S, 'UPDATE tasks SET stage_id=$1 WHERE id=$2 RETURNING id',
+  [await stage(X, 'In Progress'), sTask.id]), r => r.length === 0);
+await expectErr('sales cannot assign people', async () => as(S,
+  `INSERT INTO task_assignees (company_id, task_id, member_id) VALUES ($1,$2,$3)`, [X, sTask.id, sMember]));
+
+// ---------- notifications ----------
+const eMember = (await db.query(`SELECT id FROM members WHERE user_id=$1`, [E])).rows[0].id;
+await as(A, `INSERT INTO task_assignees (company_id, task_id, member_id, task_role) VALUES ($1,$2,$3,'lead')`, [X, sTask.id, eMember]);
+await expectOk('assignee is notified', async () => as(E, 'SELECT message FROM notifications'),
+  r => r.length === 1 && r[0].message.includes('Sen thesis'));
+await expectOk('admin E sees the task after the hand-over', async () => as(E, 'SELECT id FROM tasks WHERE id=$1', [sTask.id]), r => r.length === 1);
+await expectOk('owner reminds sales to invoice', async () => as(A, 'SELECT public.remind_to_invoice($1) AS who', [sTask.id]),
+  r => r[0].who === 'Sam Sales');
+await expectOk('sales gets the reminder', async () => as(S, 'SELECT message FROM notifications'),
+  r => r.length === 1 && r[0].message.includes('raise the invoice'));
+await expectErr('sales cannot send reminders', async () => as(S, 'SELECT public.remind_to_invoice($1)', [sTask.id]));
+await expectErr('another company cannot send reminders', async () => as(B, 'SELECT public.remind_to_invoice($1)', [sTask.id]));
+await expectErr('nobody can write notifications directly', async () => as(A,
+  `INSERT INTO notifications (company_id, member_id, message) VALUES ($1,$2,'spam')`, [X, sMember]));
+await expectOk('sales marks the reminder read', async () => as(S, 'UPDATE notifications SET is_read=true RETURNING id'), r => r.length === 1);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

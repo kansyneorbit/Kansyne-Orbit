@@ -3,14 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { isUuid, requireMember } from '@/lib/session'
 import { formatDate, getStages, isOverdue } from '@/lib/data'
 import {
-  ASSIGNMENT_STATUS_LABELS, FINANCE_ROLES, REVISION_TYPES, ROLE_LABELS, TASK_ROLE_LABELS,
+  ASSIGNMENT_STATUS_LABELS, FINANCE_ROLES, REVISION_TYPES, ROLE_LABELS, TASK_MANAGER_ROLES, TASK_ROLE_LABELS,
   type Member, type Role,
 } from '@/lib/types'
 import { Banner, Card, Input, PageHeader, Select, Textarea } from '@/components/ui'
 import { SubmitButton } from '@/components/submit-button'
 import {
   addAssignee, addComment, deleteTimeLog, logHours, moveTask, removeAssignee,
-  requestRevision, setAssignmentStatus, setRevisionResolved,
+  remindToInvoice, requestRevision, setAssignmentStatus, setRevisionResolved,
 } from '../actions'
 import { MoneyCard } from './money-card'
 
@@ -28,6 +28,8 @@ type Task = {
   description: string | null
   deadline: string | null
   stage_id: string
+  created_by: string | null
+  creator: { name: string; role: Role } | null
   clients: { name: string; code: string; email: string | null; phone: string | null }
   categories: { name: string }
   task_assignees: Assignee[]
@@ -52,10 +54,10 @@ function SectionTitle({ id, children, extra }: { id: string; children: React.Rea
 
 export default async function TaskPage({ params, searchParams }: {
   params: Promise<{ companyId: string; taskId: string }>
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; notice?: string }>
 }) {
   const { companyId, taskId } = await params
-  const { error } = await searchParams
+  const { error, notice } = await searchParams
   if (!isUuid(taskId)) notFound()
   const { member: me, company } = await requireMember(companyId)
 
@@ -64,7 +66,7 @@ export default async function TaskPage({ params, searchParams }: {
     getStages(companyId, { activeOnly: false }),
     supabase
       .from('tasks')
-      .select(`id, title, description, deadline, stage_id,
+      .select(`id, title, description, deadline, stage_id, created_by, creator:members(name, role),
         clients(name, code, email, phone), categories(name),
         task_assignees(id, member_id, task_role, status, members(name, role)),
         stage_history(id, from_stage_id, to_stage_id, changed_at, members(name)),
@@ -99,7 +101,7 @@ export default async function TaskPage({ params, searchParams }: {
   const current = allStages.find((s) => s.id === task.stage_id)
   const activeStages = allStages.filter((s) => s.is_active)
 
-  const canManage = ['owner', 'admin', 'manager'].includes(me.role)
+  const canManage = TASK_MANAGER_ROLES.includes(me.role)
   const mine = task.task_assignees.find((a) => a.member_id === me.id)
   const canEdit = canManage || !!mine
   const seesAllHours = ['owner', 'admin', 'manager', 'hr'].includes(me.role)
@@ -112,6 +114,7 @@ export default async function TaskPage({ params, searchParams }: {
     <>
       <PageHeader title={task.title} />
       {error && <div className="mb-6"><Banner>{error}</Banner></div>}
+      {notice && !error && <div className="mb-6"><Banner tone="info">{notice}</Banner></div>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* ---------- main column ---------- */}
@@ -127,6 +130,7 @@ export default async function TaskPage({ params, searchParams }: {
                 </dd>
               </div>
               <div><dt className="text-faint">Client contact</dt><dd>{[task.clients.email, task.clients.phone].filter(Boolean).join(' · ') || '—'}</dd></div>
+              {task.creator && <div><dt className="text-faint">Brought in by</dt><dd>{task.creator.name} <span className="text-faint">· {ROLE_LABELS[task.creator.role]}</span></dd></div>}
             </dl>
             {task.description && <p className="mt-4 border-t border-line pt-4 text-sm whitespace-pre-wrap">{task.description}</p>}
           </Card>
@@ -238,6 +242,22 @@ export default async function TaskPage({ params, searchParams }: {
             )}
           </Card>
 
+          {canManage && task.creator && task.created_by !== me.id && (
+            <Card className={`p-5 ${current?.kind === 'billing' ? 'border-brand/50' : ''}`}>
+              <SectionTitle id="invoice-reminder">Invoice</SectionTitle>
+              <p className="mb-3 text-sm text-soft">
+                {current?.kind === 'billing'
+                  ? <>This work is delivered. Ask <strong className="text-ink">{task.creator.name}</strong> to raise the invoice.</>
+                  : <>When the work is delivered, ask <strong className="text-ink">{task.creator.name}</strong> to raise the invoice.</>}
+              </p>
+              <form action={remindToInvoice.bind(null, companyId, taskId)}>
+                <SubmitButton variant={current?.kind === 'billing' ? 'primary' : 'secondary'} className="w-full" pendingText="Sending…">
+                  Remind to raise invoice
+                </SubmitButton>
+              </form>
+            </Card>
+          )}
+
           {/* team */}
           <Card className="p-5">
             <SectionTitle id="team">People on this task</SectionTitle>
@@ -286,7 +306,7 @@ export default async function TaskPage({ params, searchParams }: {
             )}
           </Card>
 
-          {FINANCE_ROLES.includes(me.role) && <MoneyCard companyId={companyId} taskId={taskId} company={company} myRole={me.role} />}
+          {(FINANCE_ROLES.includes(me.role) || (me.role === 'sales' && task.created_by === me.id)) && <MoneyCard companyId={companyId} taskId={taskId} company={company} myRole={me.role} />}
 
           {/* hours */}
           <Card className="p-5">

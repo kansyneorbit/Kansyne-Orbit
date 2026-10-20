@@ -18,13 +18,19 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   `can_see_financials`. New tables must enable RLS and use these (never `USING (true)`).
 - `company_id` is immutable (trigger). Companies are created only by
   `create_company()`; invited members are linked by `accept_invites()`.
-- Roles (`members.role`): owner, admin, manager, consultant, analyst, accounts, hr.
+- Roles (`members.role`): owner, admin, manager, sales (shown as "Business Development"),
+  consultant, analyst, accounts, hr. Sales creates clients/tasks as themselves, sees only
+  tasks they created or are assigned to (and those clients), sets fee/invoice and reads
+  payments on tasks they created; they do not assign or move stages.
+- Notifications are written only by SECURITY DEFINER code: the assignment trigger and
+  `remind_to_invoice()` (Owner/Admin/Manager -> task creator).
 - Workflow stages and categories are per-company rows. Behaviour keys off
   `workflow_stages.kind` (open/active/waiting/billing/closed), never stage names.
   `allowed_roles` limits who may move a task into a stage.
 
 ## Status (2026-10-20)
-- Applied to Supabase: `20261020000000_core_multitenant`, `20261020000100_fk_indexes`.
+- Applied to Supabase: `20261020000000_core_multitenant`, `20261020000100_fk_indexes`,
+  `20261020000300_sales_role_and_notifications`.
 - NOT applied: `20261020000200_policy_split_and_index_cleanup` — it drops objects, and
   the Supabase MCP auto-declines destructive migrations in this app (its confirmation
   prompt can't be shown). The user can run it in the Supabase SQL editor, or approve it
