@@ -32,7 +32,25 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
 - Known advisor warnings that are intentional: `create_company`, `accept_invites`,
   `next_client_code` are SECURITY DEFINER RPCs callable by signed-in users (they check
   the caller themselves).
-- No frontend yet; stack not chosen.
+- Frontend: first slice built (sign-up/sign-in, company setup, task board, new task,
+  task detail with stage moves, workflow settings). Not yet: team/invites, comments,
+  hours, financials, billing. No GitHub remote or Vercel project yet.
+
+## App (Next.js 16 + TypeScript + Tailwind 4)
+- `npm run dev` (port 3000), `npm run build`, `npm run typecheck`.
+- Next 16 renamed middleware to `src/proxy.ts`: it refreshes the Supabase session and
+  sends signed-out visitors to `/login`. It is a convenience, not security.
+- All data access is server-side with the signed-in user's Supabase client
+  (`src/lib/supabase/server.ts`), so RLS applies to every query. Never use a
+  service-role key in the app.
+- Routes: `/app` links invites and picks a company; everything for one company lives
+  under `/c/[companyId]/…`, and its layout calls `requireMember()` (`src/lib/session.ts`).
+- Forms are Server Actions in `actions.ts` next to their page. On failure they call
+  `fail(path, message)`, which redirects back with `?error=` shown in a `<Banner>`.
+- Shared UI is in `src/components/ui.tsx`; colours are theme tokens in
+  `src/app/globals.css` (light + dark).
+- Env: `.env.local` (git-ignored) holds the Supabase URL and publishable key; see
+  `.env.example`.
 
 ## Database rules
 - Every schema change is a new file `supabase/migrations/YYYYMMDDHHMMSS_description.sql`.
