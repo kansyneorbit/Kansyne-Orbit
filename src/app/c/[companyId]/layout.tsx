@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { isUuid, requireMember } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { NavLink } from '@/components/nav-link'
-import { FINANCE_ROLES, ROLE_LABELS, TASK_CREATOR_ROLES } from '@/lib/types'
+import { FINANCE_ROLES, LEAD_ROLES, ROLE_LABELS, TASK_CREATOR_ROLES } from '@/lib/types'
 import { signOut } from '@/app/(auth)/actions'
 
 export default async function CompanyLayout({ children, params }: { children: React.ReactNode; params: Promise<{ companyId: string }> }) {
@@ -39,6 +39,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
           </NavLink>
           {canCreateTasks && <NavLink href={`${base}/tasks/new`}>New task</NavLink>}
           {FINANCE_ROLES.includes(member.role) && <NavLink href={`${base}/finance`}>Finance</NavLink>}
+          {LEAD_ROLES.includes(member.role) && <NavLink href={`${base}/leads`}>Leads</NavLink>}
           <NavLink href={`${base}/clients`}>Clients</NavLink>
           <NavLink href={`${base}/team`}>Team</NavLink>
           {canConfigure && <NavLink href={`${base}/settings/workflow`}>Workflow settings</NavLink>}

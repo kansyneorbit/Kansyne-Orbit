@@ -196,7 +196,9 @@ await expectErr('sales cannot assign people', async () => as(S,
 const eMember = (await db.query(`SELECT id FROM members WHERE user_id=$1`, [E])).rows[0].id;
 await as(A, `INSERT INTO task_assignees (company_id, task_id, member_id, task_role) VALUES ($1,$2,$3,'lead')`, [X, sTask.id, eMember]);
 await expectOk('assignee is notified', async () => as(E, 'SELECT message FROM notifications'),
-  r => r.length === 1 && r[0].message.includes('Sen thesis'));
+  r => r.some((n) => n.message === 'You were added to "Sen thesis"'));
+await expectOk('admin was told about the hand-over of a sales task', async () => as(E, 'SELECT message FROM notifications'),
+  r => r.some((n) => n.message.includes('hand it to a Manager')));
 await expectOk('admin E sees the task after the hand-over', async () => as(E, 'SELECT id FROM tasks WHERE id=$1', [sTask.id]), r => r.length === 1);
 await expectOk('owner reminds sales to invoice', async () => as(A, 'SELECT public.remind_to_invoice($1) AS who', [sTask.id]),
   r => r[0].who === 'Sam Sales');
@@ -207,6 +209,54 @@ await expectErr('another company cannot send reminders', async () => as(B, 'SELE
 await expectErr('nobody can write notifications directly', async () => as(A,
   `INSERT INTO notifications (company_id, member_id, message) VALUES ($1,$2,'spam')`, [X, sMember]));
 await expectOk('sales marks the reminder read', async () => as(S, 'UPDATE notifications SET is_read=true RETURNING id'), r => r.length === 1);
+
+// ---------- leads ----------
+const G = '00000000-0000-0000-0000-000000000011';
+await db.exec(`INSERT INTO auth.users VALUES ('${G}', 'g@alpha.com', now())`);
+await as(A, `INSERT INTO members (company_id, name, email, role) VALUES ($1,'Gia','g@alpha.com','consultant')`, [X]);
+await as(G, 'SELECT public.accept_invites()');
+
+const [sLead] = await expectOk('sales creates a lead they own, numbered LD-0001', async () => as(S,
+  `INSERT INTO leads (company_id, contact_name, phone, created_by, owner_id) VALUES ($1,'Dr Iyer','98765',$2,$2) RETURNING id, lead_no`,
+  [X, sMember]), r => r[0].lead_no === 'LD-0001') ?? [];
+await expectErr('sales cannot give a lead to someone else', async () => as(S,
+  `INSERT INTO leads (company_id, contact_name, created_by, owner_id) VALUES ($1,'x',$2,$3)`, [X, sMember, aMember]));
+await expectErr('nobody creates a lead as someone else', async () => as(A,
+  `INSERT INTO leads (company_id, contact_name, created_by) VALUES ($1,'x',$2)`, [X, sMember]));
+const [aLead] = await as(A, `INSERT INTO leads (company_id, contact_name, created_by, owner_id) VALUES ($1,'Prof Das',$2,$2) RETURNING id, lead_no`, [X, aMember]);
+await expectOk('second lead is LD-0002 even though sales cannot see the first', async () => aLead.lead_no, r => r === 'LD-0002');
+await expectOk('owner sees all leads', async () => as(A, 'SELECT id FROM leads'), r => r.length === 2);
+await expectOk('sales sees only their own lead', async () => as(S, 'SELECT id FROM leads'), r => r.length === 1 && r[0].id === sLead.id);
+await expectOk('consultant sees no leads', async () => as(G, 'SELECT id FROM leads'), r => r.length === 0);
+await expectErr('consultant cannot create leads', async () => {
+  const g = (await db.query(`SELECT id FROM members WHERE user_id=$1`, [G])).rows[0].id;
+  return as(G, `INSERT INTO leads (company_id, contact_name, created_by) VALUES ($1,'x',$2)`, [X, g]);
+});
+await expectOk('other company sees no leads', async () => as(B, 'SELECT id FROM leads'), r => r.length === 0);
+await expectOk('sales logs a call', async () => as(S,
+  `INSERT INTO lead_activities (company_id, lead_id, member_id, kind, body) VALUES ($1,$2,$3,'call','Spoke, wants a quote') RETURNING id`,
+  [X, sLead.id, sMember]), r => r.length === 1);
+await expectErr('sales cannot log on a lead they cannot see', async () => as(S,
+  `INSERT INTO lead_activities (company_id, lead_id, member_id, body) VALUES ($1,$2,$3,'x')`, [X, aLead.id, sMember]));
+await expectOk('sales cannot update a lead they cannot see (0 rows)', async () => as(S,
+  `UPDATE leads SET status='contacted' WHERE id=$1 RETURNING id`, [aLead.id]), r => r.length === 0);
+
+const notesBefore = (await db.query(`SELECT count(*)::int n FROM notifications WHERE member_id=$1`, [aMember])).rows[0].n;
+const [conv] = await expectOk('sales wins a lead: client + task + fee in one go', async () => as(S,
+  `SELECT public.convert_lead($1, 'Iyer analysis', $2, NULL, 15000) AS task`, [sLead.id, await cat(X)]),
+  r => !!r[0].task) ?? [];
+await expectOk('converted lead is won and linked', async () => as(S, 'SELECT status, task_id, client_id FROM leads WHERE id=$1', [sLead.id]),
+  r => r[0].status === 'won' && r[0].task_id === conv.task && !!r[0].client_id);
+await expectOk('sales sees the new task and its fee', async () => as(S,
+  'SELECT t.id, f.total_amount::int fee FROM tasks t JOIN task_financials f ON f.task_id = t.id WHERE t.id=$1', [conv.task]),
+  r => r.length === 1 && r[0].fee === 15000);
+await expectOk('owner is told to hand the new task to a Manager', async () =>
+  (await db.query(`SELECT count(*)::int n FROM notifications WHERE member_id=$1 AND message LIKE '%hand it to a Manager%'`, [aMember])).rows[0].n,
+  n => n === notesBefore + 1 || n > notesBefore);
+await expectErr('a won lead cannot be converted twice', async () => as(S,
+  `SELECT public.convert_lead($1, 'again', $2)`, [sLead.id, await cat(X)]));
+await expectErr('consultant cannot convert a lead', async () => as(G,
+  `SELECT public.convert_lead($1, 'x', $2)`, [aLead.id, await cat(X)]));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -31,6 +31,14 @@ export const REVISION_TYPES = [
 export const TASK_ROLE_LABELS = { lead: 'Lead', contributor: 'Contributor', reviewer: 'Reviewer' } as const
 export const ASSIGNMENT_STATUS_LABELS = { pending: 'Not started', in_progress: 'In progress', completed: 'Done' } as const
 
+export const LEAD_STATUS_LABELS = {
+  new: 'New', contacted: 'Contacted', proposal: 'Proposal sent', won: 'Won', lost: 'Lost',
+} as const
+export type LeadStatus = keyof typeof LEAD_STATUS_LABELS
+export const OPEN_LEAD_STATUSES: LeadStatus[] = ['new', 'contacted', 'proposal']
+export const LEAD_ACTIVITY_LABELS = { note: 'Note', call: 'Call', email: 'Email', meeting: 'Meeting', status: 'Update' } as const
+export const LEAD_SOURCES = ['Referral', 'Website', 'Phone enquiry', 'Social media', 'Event', 'Existing client', 'Other'] as const
+
 export type Company = {
   id: string
   name: string
@@ -49,6 +57,8 @@ export type PaymentStatus = keyof typeof PAYMENT_STATUS_LABELS
 export const FINANCE_ROLES: Role[] = ['owner', 'admin', 'manager', 'accounts']
 // Who may create clients and tasks (Business Development only as themselves).
 export const TASK_CREATOR_ROLES: Role[] = ['owner', 'admin', 'manager', 'sales']
+// Who works leads (Business Development only their own).
+export const LEAD_ROLES: Role[] = ['owner', 'admin', 'manager', 'sales']
 // Who assigns people, edits any task and sends invoice reminders.
 export const TASK_MANAGER_ROLES: Role[] = ['owner', 'admin', 'manager']
 
