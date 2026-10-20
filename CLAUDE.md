@@ -34,7 +34,13 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   the caller themselves).
 - Frontend: first slice built (sign-up/sign-in, company setup, task board, new task,
   task detail with stage moves, workflow settings). Not yet: team/invites, comments,
-  hours, financials, billing. No GitHub remote or Vercel project yet.
+  hours, financials, billing.
+- GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
+  username are set to kansyneorbit; the PC's global git login is Kansyne's).
+- Vercel: project `kansyne-orbit` (`prj_oG7xRnid4l7lWjAAVR1ATXhfyciD`) in team
+  `orbit-kansyne` (`team_7lDdhGJkuPgSESsfFr153vzU`), Hobby plan. Every push to `main`
+  deploys production; other branches get preview URLs. Env vars hold the Supabase URL
+  and publishable key for all environments.
 
 ## App (Next.js 16 + TypeScript + Tailwind 4)
 - `npm run dev` (port 3000), `npm run build`, `npm run typecheck`.
