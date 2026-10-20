@@ -25,7 +25,7 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
     .order('created_at')
   const companies = (seats ?? []) as unknown as { role: Role; companies: { id: string; name: string } }[]
 
-  if (companies.length === 1 && !wantsNew && !error) redirect(`/c/${companies[0].companies.id}`)
+  if (companies.length === 1 && !wantsNew && !error) redirect(`/c/${companies[0].companies.id}/home`)
 
   const defaultName = String(user.user_metadata?.full_name ?? '')
 
@@ -39,7 +39,7 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
       {companies.length > 0 && (
         <Card className="mb-6 divide-y divide-line">
           {companies.map(({ role, companies: c }) => (
-            <Link key={c.id} href={`/c/${c.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-muted">
+            <Link key={c.id} href={`/c/${c.id}/home`} className="flex items-center justify-between px-4 py-3 hover:bg-muted">
               <span className="font-medium">{c.name}</span>
               <span className="text-xs text-faint">{ROLE_LABELS[role]}</span>
             </Link>

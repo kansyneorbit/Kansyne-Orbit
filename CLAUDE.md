@@ -45,8 +45,9 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   (Money card per task; /finance reports by period), Business Development role,
   notifications, Clients (list, search, client page), Leads (pipeline, activity log,
   convert_lead() -> client + task), HR (leave types/allowances/holidays, apply_leave/
-  decide_leave/cancel_leave RPCs, hours report). Not yet:
-  dashboard, billing, employee profiles. Finance reports aggregate in JS
+  decide_leave/cancel_leave RPCs, hours report), Home dashboard per role (/c/[id]/home is
+  where sign-in lands). Not yet:
+  billing, employee profiles. Finance reports aggregate in JS
   over all of a company's money rows; move to SQL views if companies get large.
 - GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
   username are set to kansyneorbit; the PC's global git login is Kansyne's).

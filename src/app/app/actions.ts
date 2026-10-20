@@ -13,5 +13,5 @@ export async function createCompany(form: FormData) {
   const supabase = await createClient()
   const { data: id, error } = await supabase.rpc('create_company', { p_name: company, p_your_name: name })
   if (error || !id) fail('/app?new=1', error?.message ?? 'Could not create the company.')
-  redirect(`/c/${id}`)
+  redirect(`/c/${id}/home`)
 }

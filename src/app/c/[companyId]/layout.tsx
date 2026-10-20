@@ -6,6 +6,11 @@ import { NavLink } from '@/components/nav-link'
 import { FINANCE_ROLES, LEAD_ROLES, PEOPLE_ROLES, ROLE_LABELS, TASK_CREATOR_ROLES } from '@/lib/types'
 import { signOut } from '@/app/(auth)/actions'
 
+// Section label in the sidebar; hidden in the phone-width horizontal menu.
+function NavSection({ children }: { children: React.ReactNode }) {
+  return <p className="hidden px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-faint uppercase md:block">{children}</p>
+}
+
 export default async function CompanyLayout({ children, params }: { children: React.ReactNode; params: Promise<{ companyId: string }> }) {
   const { companyId } = await params
   if (!isUuid(companyId)) notFound()
@@ -28,7 +33,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
           <p className="mt-1 truncate font-semibold" title={company.name}>{company.short_name}</p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible">
-          <NavLink href={base} exact>Tasks</NavLink>
+          <NavLink href={`${base}/home`}>Home</NavLink>
           <NavLink href={`${base}/notifications`}>
             <span className="flex items-center justify-between gap-2">
               Notifications
@@ -37,10 +42,13 @@ export default async function CompanyLayout({ children, params }: { children: Re
               )}
             </span>
           </NavLink>
+          <NavSection>Work</NavSection>
+          <NavLink href={base} exact>Tasks</NavLink>
           {canCreateTasks && <NavLink href={`${base}/tasks/new`}>New task</NavLink>}
-          {FINANCE_ROLES.includes(member.role) && <NavLink href={`${base}/finance`}>Finance</NavLink>}
           {LEAD_ROLES.includes(member.role) && <NavLink href={`${base}/leads`}>Leads</NavLink>}
           <NavLink href={`${base}/clients`}>Clients</NavLink>
+          {FINANCE_ROLES.includes(member.role) && <NavLink href={`${base}/finance`}>Finance</NavLink>}
+          <NavSection>People</NavSection>
           <NavLink href={`${base}/leave`}>Leave</NavLink>
           {PEOPLE_ROLES.includes(member.role) && <NavLink href={`${base}/hr`}>HR</NavLink>}
           <NavLink href={`${base}/team`}>Team</NavLink>
