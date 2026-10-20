@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { isUuid, requireMember } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { billingNotice } from '@/lib/billing'
 import { NavLink } from '@/components/nav-link'
 import { FINANCE_ROLES, LEAD_ROLES, PEOPLE_ROLES, ROLE_LABELS, TASK_CREATOR_ROLES } from '@/lib/types'
 import { signOut } from '@/app/(auth)/actions'
@@ -18,6 +19,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
   const base = `/c/${companyId}`
   const canConfigure = member.role === 'owner' || member.role === 'admin'
   const canCreateTasks = TASK_CREATOR_ROLES.includes(member.role)
+  const notice = billingNotice(company)
   const supabase = await createClient()
   const { count: unread } = await supabase
     .from('notifications')
@@ -31,6 +33,14 @@ export default async function CompanyLayout({ children, params }: { children: Re
         <div className="px-4 py-4">
           <Link href="/app" className="block text-xs font-semibold tracking-wide text-brand">KANSYNE ORBIT</Link>
           <p className="mt-1 truncate font-semibold" title={company.name}>{company.short_name}</p>
+          {notice && canConfigure && (
+            <Link href={`${base}/billing`}
+              className={`mt-2 block rounded-md px-2 py-1 text-xs font-medium ${notice.tone === 'bad'
+                ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}`}>
+              {notice.text} →
+            </Link>
+          )}
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible">
           <NavLink href={`${base}/home`}>Home</NavLink>
@@ -53,6 +63,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
           {PEOPLE_ROLES.includes(member.role) && <NavLink href={`${base}/hr`}>HR</NavLink>}
           <NavLink href={`${base}/team`}>Team</NavLink>
           {canConfigure && <NavLink href={`${base}/settings/workflow`}>Workflow settings</NavLink>}
+          {canConfigure && <NavLink href={`${base}/billing`}>Billing</NavLink>}
         </nav>
         <div className="hidden border-t border-line px-4 py-3 md:block">
           <p className="truncate text-sm font-medium">{member.name}</p>

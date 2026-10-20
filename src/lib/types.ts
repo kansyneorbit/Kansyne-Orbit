@@ -47,6 +47,10 @@ export type Company = {
   currency_code: string
   locale: string
   timezone: string
+  plan: string
+  billing_status: 'trialing' | 'active' | 'past_due' | 'cancelled'
+  trial_ends_at: string
+  current_period_end: string | null
 }
 
 export const PAYMENT_KIND_LABELS = { advance: 'Advance', payment: 'Payment', extra: 'Extra charge' } as const

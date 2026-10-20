@@ -305,5 +305,32 @@ await expectErr('admin cannot approve their own (owner-level) leave', async () =
 await expectOk('owner rejects with a note', async () => as(A, `SELECT public.decide_leave($1, false, 'Release week')`, [eLeave]), () => true);
 await expectErr('a decided request cannot be decided again', async () => as(A, 'SELECT public.decide_leave($1, true)', [eLeave]));
 
+// ---------- billing ----------
+await expectOk('new companies start a trial', async () => as(A, `SELECT billing_status, trial_ends_at > now() AS future FROM companies WHERE id=$1`, [X]),
+  r => r[0].billing_status === 'trialing' && r[0].future === true);
+await expectOk('members can read the price list', async () => as(G, 'SELECT id FROM plans ORDER BY position'), r => r.map((p) => p.id).join() === 'starter,pro');
+await expectErr('anon cannot read the price list', async () => as(null, 'SELECT id FROM plans'));
+await expectErr('owner cannot mark their company as paid', async () => as(A, `UPDATE companies SET billing_status='active', plan='pro' WHERE id=$1`, [X]));
+await expectErr('owner cannot extend their own trial', async () => as(A, `UPDATE companies SET trial_ends_at = now() + interval '1 year' WHERE id=$1`, [X]));
+await expectOk('owner can still rename the company', async () => as(A, `UPDATE companies SET short_name='Alpha' WHERE id=$1 RETURNING id`, [X]), r => r.length === 1);
+await expectOk('owner sets the billing email', async () => as(A, `UPDATE companies SET billing_email='accounts@alpha.com' WHERE id=$1 RETURNING id`, [X]), r => r.length === 1);
+await expectErr('admin cannot change the billing email', async () => as(E, `UPDATE companies SET billing_email='x@alpha.com' WHERE id=$1`, [X]));
+await expectErr('customers cannot list all companies', async () => as(A, 'SELECT * FROM public.admin_list_companies()'));
+await expectErr('customers cannot activate billing', async () => as(A, `SELECT public.admin_set_billing($1,'pro','active')`, [X]));
+await expectErr('customers cannot change prices', async () => as(A, `SELECT public.admin_set_plan_price('pro', 1)`));
+await expectOk('customers are not platform admins', async () => as(A, 'SELECT public.am_platform_admin() a'), r => r[0].a === false);
+
+const P = '00000000-0000-0000-0000-000000000099';
+await db.exec(`INSERT INTO auth.users VALUES ('${P}', 'ops@orbit.test', now()); INSERT INTO private.platform_admins (user_id) VALUES ('${P}')`);
+await expectOk('platform admin lists every company', async () => as(P, 'SELECT name, active_users FROM public.admin_list_companies()'),
+  r => r.length === 2 && r.some((c) => c.name === 'Alpha Consulting'));
+await expectOk('platform admin activates a company', async () => as(P,
+  `SELECT public.admin_set_billing($1,'pro','active', now() + interval '1 month', 6)`, [X]), () => true);
+await expectOk('the company sees it is on Pro', async () => as(A, 'SELECT plan, billing_status, seats_paid FROM companies WHERE id=$1', [X]),
+  r => r[0].plan === 'pro' && r[0].billing_status === 'active' && r[0].seats_paid === 6);
+await expectOk('platform admin changes a price', async () => as(P, `SELECT public.admin_set_plan_price('starter', 449, 10)`), () => true);
+await expectOk('new price is visible', async () => as(A, `SELECT price_per_user::int p FROM plans WHERE id='starter'`), r => r[0].p === 449);
+await expectOk('platform admin still cannot read company data directly', async () => as(P, 'SELECT id FROM tasks'), r => r.length === 0);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -16,6 +16,7 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
   const user = await requireUser()
   const supabase = await createClient()
   await supabase.rpc('accept_invites')
+  const { data: isPlatformAdmin } = await supabase.rpc('am_platform_admin')
 
   const { data: seats } = await supabase
     .from('members')
@@ -25,7 +26,7 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
     .order('created_at')
   const companies = (seats ?? []) as unknown as { role: Role; companies: { id: string; name: string } }[]
 
-  if (companies.length === 1 && !wantsNew && !error) redirect(`/c/${companies[0].companies.id}/home`)
+  if (companies.length === 1 && !wantsNew && !error && !isPlatformAdmin) redirect(`/c/${companies[0].companies.id}/home`)
 
   const defaultName = String(user.user_metadata?.full_name ?? '')
 
@@ -33,7 +34,10 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
     <main className="mx-auto max-w-lg px-4 py-12">
       <div className="mb-8 flex items-center justify-between">
         <span className="text-sm font-semibold tracking-wide text-brand">KANSYNE ORBIT</span>
-        <form action={signOut}><button className="text-sm text-soft hover:text-ink">Sign out</button></form>
+        <div className="flex items-center gap-4">
+          {isPlatformAdmin && <Link href="/admin" className="text-sm font-medium text-brand hover:underline">Orbit admin</Link>}
+          <form action={signOut}><button className="text-sm text-soft hover:text-ink">Sign out</button></form>
+        </div>
       </div>
 
       {companies.length > 0 && (
