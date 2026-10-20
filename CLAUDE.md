@@ -30,7 +30,8 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
 
 ## Status (2026-10-20)
 - Applied to Supabase: `20261020000000_core_multitenant`, `20261020000100_fk_indexes`,
-  `20261020000300_sales_role_and_notifications`, `20261020000400_leads`.
+  `20261020000300_sales_role_and_notifications`, `20261020000400_leads`,
+  `20261020000500_hr_leave`.
 - NOT applied: `20261020000200_policy_split_and_index_cleanup` — it drops objects, and
   the Supabase MCP auto-declines destructive migrations in this app (its confirmation
   prompt can't be shown). The user can run it in the Supabase SQL editor, or approve it
@@ -43,8 +44,9 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   deactivate), task work (assign people, comments, revisions, log hours), finance
   (Money card per task; /finance reports by period), Business Development role,
   notifications, Clients (list, search, client page), Leads (pipeline, activity log,
-  convert_lead() -> client + task). Not yet:
-  HR, dashboard, billing. Finance reports aggregate in JS
+  convert_lead() -> client + task), HR (leave types/allowances/holidays, apply_leave/
+  decide_leave/cancel_leave RPCs, hours report). Not yet:
+  dashboard, billing, employee profiles. Finance reports aggregate in JS
   over all of a company's money rows; move to SQL views if companies get large.
 - GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
   username are set to kansyneorbit; the PC's global git login is Kansyne's).

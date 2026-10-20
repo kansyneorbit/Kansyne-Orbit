@@ -258,5 +258,52 @@ await expectErr('a won lead cannot be converted twice', async () => as(S,
 await expectErr('consultant cannot convert a lead', async () => as(G,
   `SELECT public.convert_lead($1, 'x', $2)`, [aLead.id, await cat(X)]));
 
+// ---------- HR: leave ----------
+const gMember = (await db.query(`SELECT id FROM members WHERE user_id=$1`, [G])).rows[0].id;
+const casual = async (cid) => (await db.query(`SELECT id FROM leave_types WHERE company_id=$1 AND name='Casual'`, [cid])).rows[0].id;
+await expectOk('every company gets 4 default leave types', async () => as(B, 'SELECT name FROM leave_types ORDER BY position'),
+  r => r.map((x) => x.name).join() === 'Casual,Sick,Earned,Loss of Pay');
+await expectOk('owner adds a holiday', async () => as(A,
+  `INSERT INTO holidays (company_id, holiday_date, name) VALUES ($1,'2027-03-03','Holi') RETURNING id`, [X]), r => r.length === 1);
+await expectErr('consultant cannot add holidays', async () => as(G,
+  `INSERT INTO holidays (company_id, holiday_date, name) VALUES ($1,'2027-03-04','x')`, [X]));
+await expectOk('consultant cannot change leave types (0 rows)', async () => as(G,
+  `UPDATE leave_types SET yearly_allowance=99 WHERE company_id=$1 RETURNING id`, [X]), r => r.length === 0);
+await expectErr('nobody writes leave requests directly', async () => as(G,
+  `INSERT INTO leave_requests (company_id, member_id, leave_type_id, start_date, end_date, days, approver_level)
+   VALUES ($1,$2,$3,'2027-01-04','2027-01-04',1,'auto')`, [X, gMember, await casual(X)]));
+
+const [{ id: gLeave }] = await as(G, `SELECT public.apply_leave($1,$2,'2027-03-01','2027-03-07') AS id`, [X, await casual(X)]);
+await expectOk('Mon–Sun with a holiday counts 4 working days; no Manager, so an Admin approves', async () =>
+  as(G, 'SELECT days::numeric d, approver_level, status FROM leave_requests WHERE id=$1', [gLeave]),
+  r => Number(r[0].d) === 4 && r[0].approver_level === 'admin' && r[0].status === 'pending');
+await expectErr('overlapping leave is refused', async () => as(G, `SELECT public.apply_leave($1,$2,'2027-03-05','2027-03-05')`, [X, await casual(X)]));
+await expectErr('you cannot approve your own leave', async () => as(G, 'SELECT public.decide_leave($1, true)', [gLeave]));
+await expectErr('Business Development cannot approve leave', async () => as(S, 'SELECT public.decide_leave($1, true)', [gLeave]));
+await expectOk('admin approves', async () => as(E, `SELECT public.decide_leave($1, true, 'Enjoy')`, [gLeave]), () => true);
+await expectOk('requester is told', async () => as(G, 'SELECT message FROM notifications'),
+  r => r.some((n) => n.message.includes('was approved: Enjoy')));
+await expectOk('balance: Casual 12 - 4 = 8', async () => as(G, 'SELECT * FROM public.leave_balance($1,$2,2027)', [X, gMember]),
+  r => { const c = r.find((x) => x.name === 'Casual'); return Number(c.used) === 4 && Number(c.remaining) === 8; });
+await expectErr('others cannot read my balance', async () => as(S, 'SELECT * FROM public.leave_balance($1,$2,2027)', [X, gMember]));
+await expectErr('another company cannot read balances', async () => as(B, 'SELECT * FROM public.leave_balance($1,$2,2027)', [X, gMember]));
+await expectOk('sales sees only their own requests', async () => as(S, 'SELECT id FROM leave_requests'), r => r.length === 0);
+await expectOk('other company sees no requests', async () => as(B, 'SELECT id FROM leave_requests'), r => r.length === 0);
+
+const [{ id: gPending }] = await as(G, `SELECT public.apply_leave($1,$2,'2027-04-05','2027-04-05',true,'Errand') AS id`, [X, await casual(X)]);
+await expectOk('half day = 0.5', async () => as(G, 'SELECT days FROM leave_requests WHERE id=$1', [gPending]), r => Number(r[0].days) === 0.5);
+await expectOk('requester cancels pending leave', async () => as(G, 'SELECT public.cancel_leave($1)', [gPending]), () => true);
+await expectErr('someone else cannot cancel it', async () => as(E, 'SELECT public.cancel_leave($1)', [gLeave]));
+
+const [{ id: aLeave }] = await as(A, `SELECT public.apply_leave($1,$2,'2027-05-03','2027-05-04') AS id`, [X, await casual(X)]);
+await expectOk("owner's leave is approved automatically", async () => as(A, 'SELECT status FROM leave_requests WHERE id=$1', [aLeave]),
+  r => r[0].status === 'approved');
+const [{ id: eLeave }] = await as(E, `SELECT public.apply_leave($1,$2,'2027-06-07','2027-06-07') AS id`, [X, await casual(X)]);
+await expectOk("an admin's leave goes to the Owner", async () => as(E, 'SELECT approver_level FROM leave_requests WHERE id=$1', [eLeave]),
+  r => r[0].approver_level === 'owner');
+await expectErr('admin cannot approve their own (owner-level) leave', async () => as(E, 'SELECT public.decide_leave($1, true)', [eLeave]));
+await expectOk('owner rejects with a note', async () => as(A, `SELECT public.decide_leave($1, false, 'Release week')`, [eLeave]), () => true);
+await expectErr('a decided request cannot be decided again', async () => as(A, 'SELECT public.decide_leave($1, true)', [eLeave]));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

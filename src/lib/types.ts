@@ -57,6 +57,20 @@ export type PaymentStatus = keyof typeof PAYMENT_STATUS_LABELS
 export const FINANCE_ROLES: Role[] = ['owner', 'admin', 'manager', 'accounts']
 // Who may create clients and tasks (Business Development only as themselves).
 export const TASK_CREATOR_ROLES: Role[] = ['owner', 'admin', 'manager', 'sales']
+// Who sees everyone's leave and hours; who configures leave types and holidays.
+export const PEOPLE_ROLES: Role[] = ['owner', 'admin', 'manager', 'hr']
+export const HR_ADMIN_ROLES: Role[] = ['owner', 'admin', 'hr']
+export const LEAVE_STATUS_LABELS = { pending: 'Waiting', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' } as const
+export type LeaveStatus = keyof typeof LEAVE_STATUS_LABELS
+export type ApproverLevel = 'manager' | 'admin' | 'owner' | 'auto'
+// Mirrors decide_leave(): who may decide a request at each approval level.
+export function canDecideLeave(role: Role, level: ApproverLevel) {
+  if (role === 'owner') return level !== 'auto'
+  if (role === 'admin') return level === 'manager' || level === 'admin'
+  if (role === 'manager' || role === 'hr') return level === 'manager'
+  return false
+}
+
 // Who works leads (Business Development only their own).
 export const LEAD_ROLES: Role[] = ['owner', 'admin', 'manager', 'sales']
 // Who assigns people, edits any task and sends invoice reminders.
