@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { fail, isUuid, requireMember } from '@/lib/session'
 import { REVISION_TYPES } from '@/lib/types'
+import { insertClient } from '@/lib/clients'
 
 const str = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
@@ -24,27 +25,11 @@ export async function createTask(companyId: string, form: FormData) {
   if (clientId === 'new') {
     const clientName = str(form, 'client_name')
     if (!clientName) fail(back, 'Enter the new client’s name.')
-    let created: string | null = null
-    for (let attempt = 0; attempt < 2 && !created; attempt++) {
-      const { data: code, error: codeErr } = await supabase.rpc('next_client_code', { p_company: companyId })
-      if (codeErr || !code) fail(back, codeErr?.message ?? 'Could not number the client.')
-      const { data, error } = await supabase
-        .from('clients')
-        .insert({
-          company_id: companyId,
-          code,
-          name: clientName,
-          email: str(form, 'client_email') || null,
-          phone: str(form, 'client_phone') || null,
-          created_by: member.id,
-        })
-        .select('id')
-        .single()
-      if (data) created = data.id
-      else if (error?.code !== '23505') fail(back, error?.message ?? 'Could not save the client.')
-    }
-    if (!created) fail(back, 'Could not save the client. Please try again.')
-    clientId = created
+    const created = await insertClient(supabase, companyId, member.id, {
+      name: clientName, email: str(form, 'client_email'), phone: str(form, 'client_phone'),
+    })
+    if (!created.id) fail(back, created.error ?? 'Could not save the client.')
+    clientId = created.id
   } else if (!isUuid(clientId)) {
     fail(back, 'Choose a client.')
   }

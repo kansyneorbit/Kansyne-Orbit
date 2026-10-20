@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { isUuid, requireMember } from '@/lib/session'
@@ -28,6 +29,7 @@ type Task = {
   description: string | null
   deadline: string | null
   stage_id: string
+  client_id: string
   created_by: string | null
   creator: { name: string; role: Role } | null
   clients: { name: string; code: string; email: string | null; phone: string | null }
@@ -67,7 +69,7 @@ export default async function TaskPage({ params, searchParams }: {
     supabase
       .from('tasks')
       .select(`id, title, description, deadline, stage_id, created_by, creator:members(name, role),
-        clients(name, code, email, phone), categories(name),
+        client_id, clients(name, code, email, phone), categories(name),
         task_assignees(id, member_id, task_role, status, members(name, role)),
         stage_history(id, from_stage_id, to_stage_id, changed_at, members(name)),
         comments(id, body, created_at, members(name)),
@@ -121,7 +123,7 @@ export default async function TaskPage({ params, searchParams }: {
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card className="p-5">
             <dl className="grid gap-4 text-sm sm:grid-cols-2">
-              <div><dt className="text-faint">Client</dt><dd className="font-medium">{task.clients.name} <span className="text-faint">· {task.clients.code}</span></dd></div>
+              <div><dt className="text-faint">Client</dt><dd className="font-medium"><Link href={`/c/${companyId}/clients/${task.client_id}`} className="hover:text-brand">{task.clients.name}</Link> <span className="text-faint">· {task.clients.code}</span></dd></div>
               <div><dt className="text-faint">Category</dt><dd className="font-medium">{task.categories.name}</dd></div>
               <div>
                 <dt className="text-faint">Deadline</dt>

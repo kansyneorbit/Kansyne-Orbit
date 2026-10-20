@@ -10,10 +10,10 @@ export const metadata = { title: 'New task' }
 
 export default async function NewTaskPage({ params, searchParams }: {
   params: Promise<{ companyId: string }>
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; client?: string }>
 }) {
   const { companyId } = await params
-  const { error } = await searchParams
+  const { error, client: preselect } = await searchParams
   const { member } = await requireMember(companyId)
 
   if (!TASK_CREATOR_ROLES.includes(member.role)) {
@@ -56,7 +56,7 @@ export default async function NewTaskPage({ params, searchParams }: {
 
           <fieldset className="space-y-3 rounded-md border border-line p-4">
             <legend className="px-1 text-sm font-medium">Client</legend>
-            <Select name="client_id" required defaultValue={clients?.length ? '' : 'new'}>
+            <Select name="client_id" required defaultValue={clients?.some((c) => c.id === preselect) ? preselect : clients?.length ? '' : 'new'}>
               <option value="" disabled>Choose a client…</option>
               <option value="new">+ New client (fill in below)</option>
               {(clients ?? []).map((c) => <option key={c.id} value={c.id}>{c.name} · {c.code}</option>)}

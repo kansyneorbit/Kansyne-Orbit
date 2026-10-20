@@ -39,6 +39,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
           </NavLink>
           {canCreateTasks && <NavLink href={`${base}/tasks/new`}>New task</NavLink>}
           {FINANCE_ROLES.includes(member.role) && <NavLink href={`${base}/finance`}>Finance</NavLink>}
+          <NavLink href={`${base}/clients`}>Clients</NavLink>
           <NavLink href={`${base}/team`}>Team</NavLink>
           {canConfigure && <NavLink href={`${base}/settings/workflow`}>Workflow settings</NavLink>}
         </nav>
