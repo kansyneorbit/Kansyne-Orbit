@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isUuid, requireMember } from '@/lib/session'
 import { formatDate, getStages, isOverdue } from '@/lib/data'
 import {
-  ASSIGNMENT_STATUS_LABELS, REVISION_TYPES, ROLE_LABELS, TASK_ROLE_LABELS,
+  ASSIGNMENT_STATUS_LABELS, FINANCE_ROLES, REVISION_TYPES, ROLE_LABELS, TASK_ROLE_LABELS,
   type Member, type Role,
 } from '@/lib/types'
 import { Banner, Card, Input, PageHeader, Select, Textarea } from '@/components/ui'
@@ -12,6 +12,7 @@ import {
   addAssignee, addComment, deleteTimeLog, logHours, moveTask, removeAssignee,
   requestRevision, setAssignmentStatus, setRevisionResolved,
 } from '../actions'
+import { MoneyCard } from './money-card'
 
 type Assignee = {
   id: string
@@ -56,7 +57,7 @@ export default async function TaskPage({ params, searchParams }: {
   const { companyId, taskId } = await params
   const { error } = await searchParams
   if (!isUuid(taskId)) notFound()
-  const { member: me } = await requireMember(companyId)
+  const { member: me, company } = await requireMember(companyId)
 
   const supabase = await createClient()
   const [allStages, { data }, { data: logData }, { data: teamData }] = await Promise.all([
@@ -284,6 +285,8 @@ export default async function TaskPage({ params, searchParams }: {
               </form>
             )}
           </Card>
+
+          {FINANCE_ROLES.includes(me.role) && <MoneyCard companyId={companyId} taskId={taskId} company={company} myRole={me.role} />}
 
           {/* hours */}
           <Card className="p-5">

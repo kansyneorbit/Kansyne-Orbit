@@ -21,7 +21,7 @@ export const requireMember = cache(async (companyId: string) => {
   const supabase = await createClient()
   const { data } = await supabase
     .from('members')
-    .select('id, company_id, name, email, role, avatar_initials, companies!inner(id, name, short_name, client_code_prefix)')
+    .select('id, company_id, name, email, role, avatar_initials, companies!inner(id, name, short_name, client_code_prefix, currency_code, locale, timezone)')
     .eq('company_id', companyId)
     .eq('user_id', user.id)
     .eq('is_active', true)

@@ -35,7 +35,17 @@ export type Company = {
   name: string
   short_name: string
   client_code_prefix: string
+  currency_code: string
+  locale: string
+  timezone: string
 }
+
+export const PAYMENT_KIND_LABELS = { advance: 'Advance', payment: 'Payment', extra: 'Extra charge' } as const
+export const PAYMENT_STATUS_LABELS = { pending: 'Expected', received: 'Received', verified: 'Verified' } as const
+export type PaymentKind = keyof typeof PAYMENT_KIND_LABELS
+export type PaymentStatus = keyof typeof PAYMENT_STATUS_LABELS
+
+export const FINANCE_ROLES: Role[] = ['owner', 'admin', 'manager', 'accounts']
 
 export type Member = {
   id: string

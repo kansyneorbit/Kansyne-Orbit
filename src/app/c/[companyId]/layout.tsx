@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { isUuid, requireMember } from '@/lib/session'
 import { NavLink } from '@/components/nav-link'
-import { ROLE_LABELS } from '@/lib/types'
+import { FINANCE_ROLES, ROLE_LABELS } from '@/lib/types'
 import { signOut } from '@/app/(auth)/actions'
 
 export default async function CompanyLayout({ children, params }: { children: React.ReactNode; params: Promise<{ companyId: string }> }) {
@@ -23,6 +23,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible">
           <NavLink href={base} exact>Tasks</NavLink>
           {canCreateTasks && <NavLink href={`${base}/tasks/new`}>New task</NavLink>}
+          {FINANCE_ROLES.includes(member.role) && <NavLink href={`${base}/finance`}>Finance</NavLink>}
           <NavLink href={`${base}/team`}>Team</NavLink>
           {canConfigure && <NavLink href={`${base}/settings/workflow`}>Workflow settings</NavLink>}
         </nav>

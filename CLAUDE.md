@@ -34,8 +34,10 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   the caller themselves).
 - Frontend: built — sign-up/sign-in, company setup, task board, new task,
   task detail with stage moves, workflow settings, Team (invite by link, roles,
-  deactivate), task work (assign people, comments, revisions, log hours). Not yet:
-  clients page, financials, HR, leads, dashboard, billing.
+  deactivate), task work (assign people, comments, revisions, log hours), finance
+  (Money card per task; /finance reports by period). Not yet:
+  clients page, HR, leads, dashboard, billing. Finance reports aggregate in JS
+  over all of a company's money rows; move to SQL views if companies get large.
 - GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
   username are set to kansyneorbit; the PC's global git login is Kansyne's).
 - Vercel: project `kansyne-orbit` (`prj_oG7xRnid4l7lWjAAVR1ATXhfyciD`) in team
