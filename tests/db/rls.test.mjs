@@ -18,6 +18,16 @@ await db.exec(`
   GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
+  -- stub of Supabase Storage (RLS is already on in the real storage.objects)
+  CREATE SCHEMA storage;
+  CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean DEFAULT false,
+    file_size_limit bigint, allowed_mime_types text[]);
+  CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text REFERENCES storage.buckets (id),
+    name text NOT NULL, owner uuid DEFAULT auth.uid());
+  ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+  GRANT USAGE ON SCHEMA storage TO anon, authenticated;
+  GRANT SELECT ON storage.buckets TO anon, authenticated;
+  GRANT ALL ON storage.objects TO anon, authenticated;
 `);
 await db.exec(migration);
 console.log('migration applied');
@@ -304,6 +314,88 @@ await expectOk("an admin's leave goes to the Owner", async () => as(E, 'SELECT a
 await expectErr('admin cannot approve their own (owner-level) leave', async () => as(E, 'SELECT public.decide_leave($1, true)', [eLeave]));
 await expectOk('owner rejects with a note', async () => as(A, `SELECT public.decide_leave($1, false, 'Release week')`, [eLeave]), () => true);
 await expectErr('a decided request cannot be decided again', async () => as(A, 'SELECT public.decide_leave($1, true)', [eLeave]));
+
+// ---------- HR: employee profiles ----------
+const H = '00000000-0000-0000-0000-000000000012';
+await db.exec(`INSERT INTO auth.users VALUES ('${H}', 'h@alpha.com', now())`);
+await as(A, `INSERT INTO members (company_id, name, email, role) VALUES ($1,'Hari HR','h@alpha.com','hr')`, [X]);
+await as(H, 'SELECT public.accept_invites()');
+const M = '00000000-0000-0000-0000-000000000013';
+await db.exec(`INSERT INTO auth.users VALUES ('${M}', 'm@alpha.com', now())`);
+await as(A, `INSERT INTO members (company_id, name, email, role) VALUES ($1,'Mo Manager','m@alpha.com','manager')`, [X]);
+await as(M, 'SELECT public.accept_invites()');
+
+await expectOk('consultant saves their own profile (updated_by stamped)', async () => as(G,
+  `INSERT INTO employee_profiles (company_id, member_id, first_name, last_name, mobile, updated_by) VALUES ($1,$2,'Gia','Rao','98000',$3) RETURNING updated_by`,
+  [X, gMember, aMember]), r => r[0].updated_by === gMember);
+await expectErr('consultant cannot write the masked number directly', async () => as(G,
+  `UPDATE employee_profiles SET bank_account_last4='1234' WHERE member_id=$1`, [gMember]));
+await expectErr('consultant cannot create a profile for someone else', async () => as(G,
+  `INSERT INTO employee_profiles (company_id, member_id, first_name) VALUES ($1,$2,'x')`, [X, sMember]));
+await as(S, `INSERT INTO employee_profiles (company_id, member_id, first_name) VALUES ($1,$2,'Sam')`, [X, sMember]);
+await expectOk('consultant cannot edit another profile (0 rows)', async () => as(G,
+  `UPDATE employee_profiles SET first_name='x' WHERE member_id=$1 RETURNING member_id`, [sMember]), r => r.length === 0);
+await expectOk('consultant sees only their own profile', async () => as(G, 'SELECT member_id FROM employee_profiles'),
+  r => r.length === 1 && r[0].member_id === gMember);
+await expectOk('manager sees no profiles', async () => as(M, 'SELECT member_id FROM employee_profiles'), r => r.length === 0);
+for (const [who, uid] of [['owner', A], ['admin', E], ['HR', H]]) {
+  await expectOk(`${who} sees every profile`, async () => as(uid, 'SELECT member_id FROM employee_profiles'), r => r.length === 2);
+}
+await expectOk('other company sees no profiles', async () => as(B, 'SELECT member_id FROM employee_profiles'), r => r.length === 0);
+await expectErr('profile cannot move to another company', async () => as(A, `UPDATE employee_profiles SET company_id=$1 WHERE member_id=$2`, [Y, gMember]));
+await expectErr('profile files must sit in the member folder', async () => as(G,
+  `UPDATE employee_profiles SET id_proof_path=$1 WHERE member_id=$2`, [`${X}/${sMember}/id.pdf`, gMember]));
+await expectOk('HR edits a profile', async () => as(H, `UPDATE employee_profiles SET emergency_name='Ravi' WHERE member_id=$1 RETURNING member_id`, [gMember]),
+  r => r.length === 1);
+
+await expectOk('consultant sets their bank number, gets last 4', async () => as(G,
+  `SELECT public.set_bank_account_number($1,$2,'1234 5678 9012') AS l`, [X, gMember]), r => r[0].l === '9012');
+await expectOk('consultant sees only the masked number', async () => as(G,
+  'SELECT p.bank_account_last4 l, (SELECT count(*)::int FROM employee_bank_numbers) n FROM employee_profiles p WHERE member_id=$1', [gMember]),
+  r => r[0].l === '9012' && r[0].n === 0);
+await expectOk('admin sees only the masked number', async () => as(E, 'SELECT account_number FROM employee_bank_numbers'), r => r.length === 0);
+await expectOk('owner sees the full number', async () => as(A, 'SELECT account_number FROM employee_bank_numbers WHERE member_id=$1', [gMember]),
+  r => r[0]?.account_number === '123456789012');
+await expectOk('HR sees the full number', async () => as(H, 'SELECT account_number FROM employee_bank_numbers'), r => r.length === 1);
+await expectOk('other company sees no numbers', async () => as(B, 'SELECT account_number FROM employee_bank_numbers'), r => r.length === 0);
+await expectErr('consultant cannot set someone else’s number', async () => as(G,
+  `SELECT public.set_bank_account_number($1,$2,'99999999')`, [X, sMember]));
+await expectErr('another company cannot set a number', async () => as(B,
+  `SELECT public.set_bank_account_number($1,$2,'99999999')`, [X, gMember]));
+await expectErr('bad account number is refused', async () => as(G, `SELECT public.set_bank_account_number($1,$2,'12')`, [X, gMember]));
+await expectErr('nobody writes numbers directly', async () => as(H,
+  `INSERT INTO employee_bank_numbers (company_id, member_id, account_number) VALUES ($1,$2,'11112222')`, [X, sMember]));
+await expectOk('admin sets a number for someone without a profile yet', async () => as(E,
+  `SELECT public.set_bank_account_number($1,$2,'55556666') AS l`, [X, eMember]), r => r[0].l === '6666');
+await expectOk('clearing the number clears last 4', async () => {
+  await as(E, `SELECT public.set_bank_account_number($1,$2,'')`, [X, eMember]);
+  return as(H, 'SELECT bank_account_last4 l, (SELECT count(*)::int FROM employee_bank_numbers WHERE member_id=$1) n FROM employee_profiles WHERE member_id=$1', [eMember]);
+}, r => r[0].l === null && r[0].n === 0);
+
+await expectOk('consultant uploads to their own folder', async () => as(G,
+  `INSERT INTO storage.objects (bucket_id, name) VALUES ('hr-docs', $1) RETURNING id`, [`${X}/${gMember}/id-1.pdf`]), r => r.length === 1);
+await expectErr('consultant cannot upload into someone else’s folder', async () => as(G,
+  `INSERT INTO storage.objects (bucket_id, name) VALUES ('hr-docs', $1)`, [`${X}/${sMember}/id.pdf`]));
+await expectErr('nobody uploads outside a member folder', async () => as(A,
+  `INSERT INTO storage.objects (bucket_id, name) VALUES ('hr-docs', $1)`, [`${X}/loose.pdf`]));
+await expectErr('another company cannot upload into this company’s folders', async () => as(B,
+  `INSERT INTO storage.objects (bucket_id, name) VALUES ('hr-docs', $1)`, [`${X}/${gMember}/x.pdf`]));
+await expectErr('a member folder under the wrong company is refused', async () => as(A,
+  `INSERT INTO storage.objects (bucket_id, name) VALUES ('hr-docs', $1)`, [`${Y}/${gMember}/x.pdf`]));
+await expectOk('HR reads the file', async () => as(H, `SELECT name FROM storage.objects WHERE bucket_id='hr-docs'`), r => r.length === 1);
+for (const [who, uid] of [['manager', M], ['sales', S], ['other company', B]]) {
+  await expectOk(`${who} cannot read the file`, async () => as(uid, `SELECT name FROM storage.objects WHERE bucket_id='hr-docs'`), r => r.length === 0);
+}
+await expectOk('manager cannot delete it (0 rows)', async () => as(M, `DELETE FROM storage.objects WHERE bucket_id='hr-docs' RETURNING id`), r => r.length === 0);
+await expectOk('consultant saves the path on their profile', async () => as(G,
+  `UPDATE employee_profiles SET id_proof_path=$1 WHERE member_id=$2 RETURNING member_id`, [`${X}/${gMember}/id-1.pdf`, gMember]), r => r.length === 1);
+
+await expectOk('HR reminds someone to complete their profile', async () => {
+  await as(H, 'SELECT public.remind_profile($1,$2)', [X, sMember]);
+  return as(S, `SELECT message FROM notifications WHERE message LIKE 'HR reminder%'`);
+}, r => r.length === 1);
+await expectErr('consultant cannot send profile reminders', async () => as(G, 'SELECT public.remind_profile($1,$2)', [X, sMember]));
+await expectErr('another company cannot send profile reminders', async () => as(B, 'SELECT public.remind_profile($1,$2)', [X, sMember]));
 
 // ---------- billing ----------
 await expectOk('new companies start a trial', async () => as(A, `SELECT billing_status, trial_ends_at > now() AS future FROM companies WHERE id=$1`, [X]),

@@ -93,6 +93,16 @@ export async function setAllowance(companyId: string, form: FormData) {
   done(companyId, back, 'allowances')
 }
 
+export async function remindProfile(companyId: string, memberId: string) {
+  const { supabase } = await start(companyId)
+  const back = `/c/${companyId}/hr/profiles`
+  if (!isUuid(memberId)) fail(back, 'Unknown person.')
+  const { error } = await supabase.rpc('remind_profile', { p_company: companyId, p_member: memberId })
+  if (error) fail(back, error.message)
+  const { data } = await supabase.from('members').select('name').eq('company_id', companyId).eq('id', memberId).maybeSingle()
+  redirect(`${back}?reminded=${encodeURIComponent(data?.name ?? 'them')}`)
+}
+
 export async function removeAllowance(companyId: string, memberId: string, typeId: string, year: number) {
   const { supabase, back } = await start(companyId)
   if (!isUuid(memberId) || !isUuid(typeId)) fail(back, 'Unknown allowance.')

@@ -32,13 +32,15 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
 ## Status (2026-10-20)
 - Applied to Supabase: `20261020000000_core_multitenant`, `20261020000100_fk_indexes`,
   `20261020000300_sales_role_and_notifications`, `20261020000400_leads`,
-  `20261020000500_hr_leave`, `20261020000600_billing`.
+  `20261020000500_hr_leave`, `20261020000600_billing`,
+  `20261020000700_employee_profiles`.
 - NOT applied: `20261020000200_policy_split_and_index_cleanup` — it drops objects, and
   the Supabase MCP auto-declines destructive migrations in this app (its confirmation
   prompt can't be shown). The user can run it in the Supabase SQL editor, or approve it
   where the prompt is supported. Perf-only; access rules are unchanged by it.
 - Known advisor warnings that are intentional: `create_company`, `accept_invites`,
-  `next_client_code` are SECURITY DEFINER RPCs callable by signed-in users (they check
+  `next_client_code`, `set_bank_account_number`, `remind_profile` (and the other
+  RPCs) are SECURITY DEFINER RPCs callable by signed-in users (they check
   the caller themselves).
 - Frontend: built — sign-up/sign-in, company setup, task board, new task,
   task detail with stage moves, workflow settings, Team (invite by link, roles,
@@ -48,8 +50,11 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
   convert_lead() -> client + task), HR (leave types/allowances/holidays, apply_leave/
   decide_leave/cancel_leave RPCs, hours report), Home dashboard per role (/c/[id]/home is
   where sign-in lands), Billing (trial, per-user plans, billing page; /admin for platform
-  admins in private.platform_admins). Not yet: payment provider (Razorpay/Stripe),
-  employee profiles. Finance reports aggregate in JS
+  admins in private.platform_admins), Employee profiles (/c/[id]/profile/[memberId]; self +
+  Owner/Admin/HR via private.can_see_profile; full bank number in employee_bank_numbers,
+  Owner/HR only, written by set_bank_account_number(); ID/address proofs in private bucket
+  hr-docs at <company>/<member>/<file>; HR list at /hr/profiles marks incomplete profiles).
+  Not yet: payment provider (Razorpay/Stripe). Finance reports aggregate in JS
   over all of a company's money rows; move to SQL views if companies get large.
 - GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
   username are set to kansyneorbit; the PC's global git login is Kansyne's).

@@ -76,7 +76,9 @@ export default async function HrPage({ params, searchParams }: {
 
   return (
     <>
-      <PageHeader title="HR" />
+      <PageHeader title="HR">
+        {configures && <Link href={`${base}/profiles`} className="rounded-md border border-line px-3 py-1.5 text-sm text-soft hover:bg-muted">Employee profiles</Link>}
+      </PageHeader>
       <div className="max-w-5xl space-y-8">
         {sp.error && <Banner>{sp.error}</Banner>}
 
