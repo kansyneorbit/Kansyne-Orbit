@@ -22,6 +22,7 @@ export default async function CompanyLayout({ children, params }: { children: Re
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:overflow-visible">
           <NavLink href={base} exact>Tasks</NavLink>
           <NavLink href={`${base}/tasks/new`}>New task</NavLink>
+          <NavLink href={`${base}/team`}>Team</NavLink>
           {canConfigure && <NavLink href={`${base}/settings/workflow`}>Workflow settings</NavLink>}
         </nav>
         <div className="hidden border-t border-line px-4 py-3 md:block">

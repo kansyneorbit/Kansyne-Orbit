@@ -32,8 +32,9 @@ Multi-tenant SaaS workflow ERP for consulting firms, rebuilt from the Kansyne ER
 - Known advisor warnings that are intentional: `create_company`, `accept_invites`,
   `next_client_code` are SECURITY DEFINER RPCs callable by signed-in users (they check
   the caller themselves).
-- Frontend: first slice built (sign-up/sign-in, company setup, task board, new task,
-  task detail with stage moves, workflow settings). Not yet: team/invites, comments,
+- Frontend: built — sign-up/sign-in, company setup, task board, new task,
+  task detail with stage moves, workflow settings, Team (invite by link, roles,
+  deactivate). Not yet: comments,
   hours, financials, billing.
 - GitHub: `kansyneorbit/Kansyne-Orbit` (this repo's git identity and credential
   username are set to kansyneorbit; the PC's global git login is Kansyne's).
