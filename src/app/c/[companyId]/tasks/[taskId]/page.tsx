@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { isUuid, requireMember } from '@/lib/session'
 import { formatDate, getStages, isOverdue } from '@/lib/data'
 import { ROLE_LABELS, type Role } from '@/lib/types'
-import { Banner, Button, Card, PageHeader, Select } from '@/components/ui'
+import { Banner, Card, PageHeader, Select } from '@/components/ui'
+import { SubmitButton } from '@/components/submit-button'
 import { moveTask } from '../actions'
 
 type Task = {
@@ -98,7 +99,7 @@ export default async function TaskPage({ params, searchParams }: {
                   </option>
                 ))}
               </Select>
-              <Button type="submit" variant="secondary" className="w-full">Move task</Button>
+              <SubmitButton variant="secondary" className="w-full">Move task</SubmitButton>
             </form>
           </Card>
 

@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/session'
-import { Banner, Button, Card, Field, Input } from '@/components/ui'
+import { Banner, Card, Field, Input } from '@/components/ui'
+import { SubmitButton } from '@/components/submit-button'
 import { ROLE_LABELS, type Role } from '@/lib/types'
 import { createCompany } from './actions'
 import { signOut } from '../(auth)/actions'
@@ -60,7 +61,7 @@ export default async function AppHome({ searchParams }: { searchParams: Promise<
           <Field label="Your name">
             <Input name="name" required maxLength={120} defaultValue={defaultName} />
           </Field>
-          <Button type="submit" className="w-full">Create company</Button>
+          <SubmitButton className="w-full" pendingText="Setting up…">Create company</SubmitButton>
         </form>
         {companies.length === 0 && (
           <p className="mt-4 text-xs text-faint">

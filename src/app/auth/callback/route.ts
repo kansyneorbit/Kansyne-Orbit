@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     dest.pathname = '/app'
   } else {
     dest.pathname = '/login'
-    dest.searchParams.set('error', 'That link has expired or was already used. Sign in, or sign up again.')
+    // With the default email template, Supabase confirms the address before
+    // redirecting here, so a failed exchange usually still means "confirmed".
+    dest.searchParams.set('notice', 'If you just opened your confirmation link, your email is confirmed — sign in below.')
   }
   return NextResponse.redirect(dest)
 }

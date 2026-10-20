@@ -1,7 +1,8 @@
 import { requireMember } from '@/lib/session'
 import { getCategories, getStages } from '@/lib/data'
 import { ROLES, ROLE_LABELS, STAGE_KINDS, STAGE_KIND_LABELS, type Stage } from '@/lib/types'
-import { Banner, Button, Card, Input, PageHeader, Select } from '@/components/ui'
+import { Banner, Card, Input, PageHeader, Select } from '@/components/ui'
+import { SubmitButton } from '@/components/submit-button'
 import { addCategory, addStage, shiftStage, updateCategory, updateStage } from './actions'
 
 export const metadata = { title: 'Workflow settings' }
@@ -78,7 +79,7 @@ export default async function WorkflowSettings({ params, searchParams }: {
                   <label className="flex items-center gap-1.5 text-sm">
                     <input type="checkbox" name="is_active" defaultChecked={s.is_active} className="accent-brand" /> In use
                   </label>
-                  <Button type="submit" variant="secondary">Save</Button>
+                  <SubmitButton variant="secondary">Save</SubmitButton>
                 </div>
               </form>
             </Card>
@@ -87,7 +88,7 @@ export default async function WorkflowSettings({ params, searchParams }: {
             <form action={addStage.bind(null, companyId)}>
               <p className="mb-3 text-sm font-medium">Add a stage at the end</p>
               <StageFields />
-              <div className="mt-3 flex justify-end"><Button type="submit">Add stage</Button></div>
+              <div className="mt-3 flex justify-end"><SubmitButton>Add stage</SubmitButton></div>
             </form>
           </Card>
         </div>
@@ -103,12 +104,12 @@ export default async function WorkflowSettings({ params, searchParams }: {
               <label className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" name="is_active" defaultChecked={c.is_active} className="accent-brand" /> In use
               </label>
-              <Button type="submit" variant="secondary">Save</Button>
+              <SubmitButton variant="secondary">Save</SubmitButton>
             </form>
           ))}
           <form action={addCategory.bind(null, companyId)} className="flex flex-wrap items-center gap-3 p-3">
             <Input name="name" placeholder="New category" required maxLength={60} className="min-w-0 flex-1" aria-label="New category name" />
-            <Button type="submit">Add</Button>
+            <SubmitButton>Add</SubmitButton>
           </form>
         </Card>
       </section>

@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Banner, Button, Card, Field, Input } from '@/components/ui'
+import { Banner, Card, Field, Input } from '@/components/ui'
+import { SubmitButton } from '@/components/submit-button'
 import { signUp } from '../actions'
 
 export const metadata = { title: 'Create account' }
@@ -32,7 +33,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <Field label="Password" hint="At least 8 characters.">
           <Input name="password" type="password" autoComplete="new-password" required minLength={8} />
         </Field>
-        <Button type="submit" className="w-full">Create account</Button>
+        <SubmitButton className="w-full" pendingText="Creating account…">Create account</SubmitButton>
       </form>
       <p className="mt-5 text-center text-sm text-soft">
         Already have an account? <Link href="/login" className="font-medium text-brand hover:underline">Sign in</Link>

@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireMember } from '@/lib/session'
 import { getCategories } from '@/lib/data'
 import { ROLE_LABELS, type Role } from '@/lib/types'
-import { Banner, Button, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
+import { Banner, Card, Field, Input, PageHeader, Select, Textarea } from '@/components/ui'
+import { SubmitButton } from '@/components/submit-button'
 import { createTask } from '../actions'
 
 export const metadata = { title: 'New task' }
@@ -80,7 +81,7 @@ export default async function NewTaskPage({ params, searchParams }: {
             <Textarea name="description" rows={4} />
           </Field>
 
-          <Button type="submit">Create task</Button>
+          <SubmitButton>Create task</SubmitButton>
         </form>
       </Card>
     </>
