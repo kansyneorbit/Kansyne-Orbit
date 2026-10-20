@@ -22,6 +22,14 @@ export const STAGE_KIND_LABELS: Record<StageKind, string> = {
   closed: 'Closed',
 }
 
+export const REVISION_TYPES = [
+  'Content changes', 'Analysis changes', 'Data correction', 'Formatting only',
+  'Additional content', 'Other',
+] as const
+
+export const TASK_ROLE_LABELS = { lead: 'Lead', contributor: 'Contributor', reviewer: 'Reviewer' } as const
+export const ASSIGNMENT_STATUS_LABELS = { pending: 'Not started', in_progress: 'In progress', completed: 'Done' } as const
+
 export type Company = {
   id: string
   name: string
